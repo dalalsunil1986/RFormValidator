@@ -1,4 +1,4 @@
-(function($, env, doc) {
+(function ($, env, doc) {
   const _selectorsArr = [];
   const _selectedElementsRefArr = [];
 
@@ -15,6 +15,15 @@
         alphanumeric: new RegExp("^[a-zA-Z0-9_]*$"),
         alpha: new RegExp("^[a-zA-Z]*$"),
         numeric: new RegExp("^[0-9]*$")
+      };
+
+      const _options = {
+        "event": "blur",
+        "formEvent": "submit",
+        "errorClass": "has-error",
+        "errorMessageClass": "error-message",
+        "wrapperElement": "div",
+        "messageElement": "span"
       };
 
       function _addNewSelector() {
@@ -187,13 +196,17 @@
           var wrapper;
 
           if (
-            field.parentNode.nodeName === "DIV" ||
+            field.parentNode.nodeName === "DIV" &&
             field.parentNode.classList.contains("form-group")
-          ) {
+          ) { //Handle Bootstrap form-group
             wrapper = field.parentNode;
+          } else if (
+            field.parentNode.nodeName === "DIV"
+          ) {
+            wrapper = field.parentNode.parentNode;
           } else {
             //Create new wrapper
-            wrapper = doc.createElement("div");
+            wrapper = doc.createElement(options.wrapperElement);
 
             var fieldLabel = field.previousElementSibling;
 
@@ -207,62 +220,48 @@
             wrapper.appendChild(field);
           }
 
-          if (options.hasOwnProperty("error-class")) {
-            wrapper.classList.add(options["error-class"]);
-          } else {
-            wrapper.classList.add("has-error");
-          }
+          //Add error class
+          wrapper.classList.add(options.errorClass);
 
           //Generate error message element
-          var messageElem = doc.createElement("span");
-          messageElem.classList.add("error-message");
+          var messageElem = doc.createElement(options.messageElement);
+          messageElem.classList.add(options.errorMessageClass);
           messageElem.innerText = _getErrorMessage(field, options, response);
 
           //Delete previously cretaed message element if any
           var previousMessageElem = wrapper.getElementsByClassName(
-            "error-message"
+            options.errorMessageClass
           )[0];
 
           if (previousMessageElem) {
             previousMessageElem.parentNode.removeChild(previousMessageElem);
           }
 
-          //Handle bootsrap select
-          if (wrapper.classList.contains("bootstrap-select")) {
-            previousMessageElem = wrapper.parentNode.getElementsByClassName(
-              "error-message"
-            )[0];
-
-            if (previousMessageElem) {
-              previousMessageElem.parentNode.removeChild(previousMessageElem);
-            }
-
-            wrapper.parentNode.insertBefore(messageElem, wrapper.nextSibling);
-          } else {
-            wrapper.insertBefore(messageElem, field.nextSibling);
-          }
+          wrapper.appendChild(messageElem);
         } catch (e) {
           console.error(e);
         }
       }
 
-      function _removeFieldError(field = null) {
+      function _removeFieldError(field = null, options = {}) {
         try {
           if (field !== null) {
-            if (field.parentNode.classList.contains("has-error")) {
-              field.parentNode.classList.remove("has-error");
+            if (field.parentNode.classList.contains(options.errorClass)) {
+              field.parentNode.classList.remove(options.errorClass);
               var messageElem = field.parentNode.getElementsByClassName(
-                "error-message"
+                options.errorMessageClass
               )[0];
 
               if (messageElem instanceof Node) {
                 field.parentNode.removeChild(messageElem);
               }
 
+
+              //Handle bootstrap select
               if (field.parentNode.classList.contains("bootstrap_select")) {
                 field.parentNode.parentNode.removeChild(
                   field.parentNode.parentNode.getElementsByClassName(
-                    "error-message"
+                    options.errorMessageClass
                   )[0]
                 );
               }
@@ -276,6 +275,7 @@
       function _validateForm(formElemRef = null, options = {}) {
         try {
           if (formElemRef !== null) {
+            var hasError = false;
             var fields = _getInputElements(formElemRef);
 
             for (var j = 0; j < fields.length; j++) {
@@ -283,11 +283,22 @@
 
               if (response !== 1) {
                 _showFieldError(fields[j], options, response);
+                hasError = true;
               } else {
                 _removeFieldError(fields[j]);
               }
             }
+
+            if (hasError) {
+              rfv.isValid = false;
+              return false;
+            } else {
+              rfv.isValid = true;
+              return true;
+            }
           }
+
+          return false;
         } catch (e) {
           console.error(e);
         }
@@ -300,38 +311,81 @@
 
             if (response !== 1) {
               _showFieldError(fieldRef, options, response);
+              rfv.isValid = false;
+              return false;
             } else {
-              _removeFieldError(fieldRef);
+              _removeFieldError(fieldRef, options);
+              rfv.isValid = true;
+              return true;
             }
           }
+
+          return false;
         } catch (e) {
           console.error(e);
         }
       }
 
-      this.validate = function(options) {
+      this.validate = function (options = {}, callback = function () {}) {
         try {
+          options = {
+            ..._options,
+            ...options
+          }
+
           var selectedElemType = _selectedElementRef.nodeName;
-          console.log(selectedElemType);
+          var response;
 
           if (selectedElemType === "FORM") {
-            _validateForm(_selectedElementRef, options);
+            response = _validateForm(_selectedElementRef, options);
           } else if (
             selectedElemType === "INPUT" ||
             selectedElemType === "SELECT" ||
             selectedElemType === "TEXTAREA"
           ) {
-            _validateField(_selectedElementRef);
+            response = _validateField(_selectedElementRef);
           }
+
+          callback(response);
         } catch (e) {
           console.error(e);
         }
       };
 
-      this.autoValidate = function(options) {
+      this.autoValidate = function (options = {}, callback = function () {}) {
         try {
-          console.log(selector + " is validated");
-          console.log(_selectedElementRef);
+          options = {
+            ..._options,
+            ...options
+          }
+
+          var selectedElemType = _selectedElementRef.nodeName;
+
+          if (selectedElemType === "FORM") {
+            _selectedElementRef.addEventListener(options.formEvent, function (e) {
+              var response = _validateForm(_selectedElementRef, options);
+
+              if (!response) {
+                e.preventDefault();
+              }
+
+              callback(response);
+            });
+          } else if (
+            selectedElemType === "INPUT" ||
+            selectedElemType === "SELECT" ||
+            selectedElemType === "TEXTAREA"
+          ) {
+            _selectedElementRef.addEventListener(options.event, function (e) {
+              var response = _validateField(_selectedElementRef, options)
+
+              if (!response) {
+                e.preventDefault();
+              }
+
+              callback(response);
+            });
+          }
         } catch (e) {
           console.error(e);
         }
@@ -342,8 +396,7 @@
   }
 
   function init(selector) {
-    try {
-    } catch (e) {
+    try {} catch (e) {
       console.error(e);
     }
     return new RFormValidator(selector);
