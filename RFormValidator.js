@@ -55,13 +55,14 @@
                 return _selectedElementsRefArr[i];
               } else {
                 //Look for selected element ref but with different selector
+                var selectedElemRef = doc.querySelector(selector);
 
                 function _matchDom(ref) {
                   if (ref === selectedElemRef) {
-                    return 1;
+                    return true;
                   }
 
-                  return -1;
+                  return false;
                 }
 
                 i = _selectedElementsRefArr.findIndex(_matchDom);
@@ -255,15 +256,21 @@
               if (messageElem instanceof Node) {
                 field.parentNode.removeChild(messageElem);
               }
+            }
 
+            //Handle bootstrap select
+            else if (
+              field.parentNode.classList.contains("bootstrap-select") ||
+              field.parentNode.classList.contains("input-group")
+            ) {
+              field.parentNode.parentNode.classList.remove(options.errorClass);
 
-              //Handle bootstrap select
-              if (field.parentNode.classList.contains("bootstrap_select")) {
-                field.parentNode.parentNode.removeChild(
-                  field.parentNode.parentNode.getElementsByClassName(
-                    options.errorMessageClass
-                  )[0]
-                );
+              var messageElem = field.parentNode.parentNode.getElementsByClassName(
+                options.errorMessageClass
+              )[0];
+
+              if (messageElem instanceof Node) {
+                field.parentNode.parentNode.removeChild(messageElem);
               }
             }
           }
@@ -285,7 +292,7 @@
                 _showFieldError(fields[j], options, response);
                 hasError = true;
               } else {
-                _removeFieldError(fields[j]);
+                _removeFieldError(fields[j], options);
               }
             }
 
