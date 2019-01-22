@@ -1,4 +1,4 @@
-(function ($, env, doc) {
+(function (env, doc) {
   const _selectorsArr = [];
   const _selectedElementsRefArr = [];
 
@@ -410,5 +410,5 @@
   }
 
   //Make it available globally
-  window.RFormValidator = window.RFV = init;
-})(jQuery, window, document);
+  env.RFormValidator = env.RFV = init;
+})(window, document);
