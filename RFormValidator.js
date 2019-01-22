@@ -403,10 +403,11 @@
   }
 
   function init(selector) {
-    try {} catch (e) {
+    try {
+      return new RFormValidator(selector);
+    } catch (e) {
       console.error(e);
     }
-    return new RFormValidator(selector);
   }
 
   //Make it available globally
